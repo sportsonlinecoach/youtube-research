@@ -183,6 +183,13 @@
       font-size: 0.78rem;
       color: var(--muted);
       margin-bottom: 10px;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .card .channel:hover {
+      color: var(--text);
+      text-decoration: underline;
     }
 
     .card .stats {
@@ -277,6 +284,27 @@
   const statusEl = document.getElementById("status");
   const resultsEl = document.getElementById("results");
 
+  const CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
+
+  function cacheGet(q) {
+    try {
+      const raw = localStorage.getItem("yt_cache_" + q);
+      if (!raw) return null;
+      const { ts, data } = JSON.parse(raw);
+      if (Date.now() - ts > CACHE_TTL_MS) {
+        localStorage.removeItem("yt_cache_" + q);
+        return null;
+      }
+      return data;
+    } catch { return null; }
+  }
+
+  function cacheSet(q, data) {
+    try {
+      localStorage.setItem("yt_cache_" + q, JSON.stringify({ ts: Date.now(), data }));
+    } catch { /* localStorage容量超過時は無視 */ }
+  }
+
   function fmt(n) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
     if (n >= 10_000) return (n / 10_000).toFixed(1) + "万";
@@ -301,7 +329,7 @@
           <img class="thumb" src="${v.thumbnail}" alt="${v.title}" loading="lazy" />
           <div class="body">
             <div class="title">${v.title}</div>
-            <div class="channel">${v.channelTitle}</div>
+            <a class="channel" href="https://www.youtube.com/channel/${v.channelId}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${v.channelTitle}</a>
             <div class="stats">
               <div class="stat-item">
                 <div class="stat-label">再生回数</div>
@@ -329,15 +357,26 @@
     btn.disabled = true;
     resultsEl.innerHTML = "";
     statusEl.className = "";
+
+    // キャッシュ確認
+    const cached = cacheGet(q);
+    if (cached) {
+      statusEl.textContent = `${cached.length} 件ヒット（キャッシュ）`;
+      resultsEl.innerHTML = cached.map(renderCard).join("");
+      btn.disabled = false;
+      return;
+    }
+
     statusEl.innerHTML = `<span class="spinner"></span>検索中…`;
 
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&maxResults=50`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || "サーバーエラー");
 
       const { results = [] } = data;
+      cacheSet(q, results);
 
       if (results.length === 0) {
         statusEl.textContent = "";

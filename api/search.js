@@ -133,6 +133,7 @@ export default async function handler(req, res) {
           video.snippet?.thumbnails?.high?.url ??
           video.snippet?.thumbnails?.default?.url ??
           "",
+        channelId,
         channelTitle: video.snippet?.channelTitle ?? "",
         publishedAt: video.snippet?.publishedAt ?? "",
         views,
