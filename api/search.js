@@ -75,7 +75,14 @@ export default async function handler(req, res) {
       return acc;
     }, []);
 
-    const [videoResults, channelData] = await Promise.all([
+    const channelIdChunks = channelIds.split(",").reduce((acc, id, i) => {
+      const chunkIdx = Math.floor(i / 50);
+      if (!acc[chunkIdx]) acc[chunkIdx] = [];
+      acc[chunkIdx].push(id);
+      return acc;
+    }, []);
+
+    const [videoResults, channelResults] = await Promise.all([
       Promise.all(
         videoIdChunks.map((chunk) =>
           fetchJson(
@@ -83,8 +90,12 @@ export default async function handler(req, res) {
           )
         )
       ),
-      fetchJson(
-        `${BASE}/channels?part=statistics&id=${channelIds}&key=${apiKey}`
+      Promise.all(
+        channelIdChunks.map((chunk) =>
+          fetchJson(
+            `${BASE}/channels?part=statistics&id=${chunk.join(",")}&key=${apiKey}`
+          )
+        )
       ),
     ]);
 
@@ -92,7 +103,7 @@ export default async function handler(req, res) {
 
     // チャンネルID → 登録者数 のマップを作成
     const subscriberMap = {};
-    for (const ch of channelData.items ?? []) {
+    for (const ch of channelResults.flatMap((r) => r.items ?? [])) {
       subscriberMap[ch.id] = parseInt(ch.statistics?.subscriberCount ?? "0", 10);
     }
 
