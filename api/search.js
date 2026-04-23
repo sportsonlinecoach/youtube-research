@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     for (let page = 0; page < PAGES; page++) {
       const url =
         `${BASE}/search?part=snippet&type=video&maxResults=50` +
-        `&q=${encodeURIComponent(q)}&key=${apiKey}` +
+        `&q=${encodeURIComponent(q)}&regionCode=JP&relevanceLanguage=ja&key=${apiKey}` +
         (pageToken ? `&pageToken=${pageToken}` : "");
       const data = await fetchJson(url);
       allSearchItems.push(...(data.items ?? []));
@@ -124,7 +124,6 @@ export default async function handler(req, res) {
       if (durationSec < MIN_DURATION_SEC) continue; // 3分未満のショートを除外
       if (views < 10000) continue;
       if (viralRate < 1) continue;
-      if (publishedAt < oneYearAgo) continue;
 
       results.push({
         videoId: video.id,
